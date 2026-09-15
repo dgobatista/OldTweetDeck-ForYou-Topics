@@ -1,8 +1,8 @@
-# TweetDeckV2
+# OldTweetDeck ForYou+Topics
 
 **Old TweetDeck, now with X's algorithmic timelines.**
 
-TweetDeckV2 is a fork of [OldTweetDeck](https://github.com/dimdenGD/OldTweetDeck) by [dimden](https://github.com/dimdenGD). It keeps everything OldTweetDeck does — the classic TweetDeck interface running on `x.com/i/tweetdeck` — and adds something the original TweetDeck never had: columns for X's **recommended feeds**.
+OldTweetDeck ForYou+Topics is a fork of [OldTweetDeck](https://github.com/dimdenGD/OldTweetDeck) by [dimden](https://github.com/dimdenGD). It keeps everything OldTweetDeck does — the classic TweetDeck interface running on `x.com/i/tweetdeck` — and adds something the original TweetDeck never had: columns for X's **recommended feeds**.
 
 Classic TweetDeck columns are all reverse-chronological. With this fork you can also add the ranked **For you** feed and any of **70+ topic timelines** (Technology, AI, Soccer, Crypto, Anime, and more) as regular columns, side by side with your Home, Lists, Search and Notifications.
 
@@ -135,7 +135,7 @@ This can't be fixed. Since Twitter made likes private, the API that returned the
 
 ## Credits
 
-TweetDeckV2 is built on **[OldTweetDeck](https://github.com/dimdenGD/OldTweetDeck) by [dimden](https://github.com/dimdenGD)**. Bringing the legacy TweetDeck client back and bridging it to X's modern API is entirely that project's work; this fork adds the algorithmic For you and topic timelines on top of it. Thanks as well to the OldTweetDeck contributors and translators.
+OldTweetDeck ForYou+Topics is built on **[OldTweetDeck](https://github.com/dimdenGD/OldTweetDeck) by [dimden](https://github.com/dimdenGD)**. Bringing the legacy TweetDeck client back and bridging it to X's modern API is entirely that project's work; this fork adds the algorithmic For you and topic timelines on top of it. Thanks as well to the OldTweetDeck contributors and translators.
 
 If you'd like 2015–2018 Twitter back too, check out dimden's [OldTwitter](https://github.com/dimdenGD/OldTwitter).
 

@@ -1,9 +1,9 @@
 {
-    "name": "OldTweetDeck",
-    "description": "Returns old TweetDeck!",
+    "name": "OldTweetDeck ForYou+Topics",
+    "description": "Old TweetDeck with X's For you and topic timelines as columns.",
     "version": "4.4.0",
     "manifest_version": 3,
-    "homepage_url": "https://github.com/dimdenGD/OldTweetDeck",
+    "homepage_url": "https://github.com/dgobatista/OldTweetDeck-ForYou-Topics",
     "permissions": [
         "webNavigation",
         "cookies",

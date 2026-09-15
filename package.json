@@ -1,5 +1,5 @@
 {
-  "name": "oldtweetdeck",
+  "name": "oldtweetdeck-foryou-topics",
   "version": "0.0.0",
   "description": "Returns old TweetDeck!",
   "main": "pack.js",
@@ -8,7 +8,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/dimdenGD/OldTweetDeck.git"
+    "url": "git+https://github.com/dgobatista/OldTweetDeck-ForYou-Topics.git"
   },
   "keywords": [
     "twitter",
@@ -20,9 +20,9 @@
   "author": "dimden",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/dimdenGD/OldTweetDeck/issues"
+    "url": "https://github.com/dgobatista/OldTweetDeck-ForYou-Topics/issues"
   },
-  "homepage": "https://github.com/dimdenGD/OldTweetDeck#readme",
+  "homepage": "https://github.com/dgobatista/OldTweetDeck-ForYou-Topics#readme",
   "dependencies": {
     "adm-zip": "^0.5.10"
   }
