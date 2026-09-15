@@ -1,102 +1,144 @@
 # TweetDeckV2
 
-A fork of [OldTweetDeck](https://github.com/dimdenGD/OldTweetDeck) that brings back the
-classic TweetDeck UI on `x.com/i/tweetdeck`, extended with support for X's
-**algorithmic timelines** (the "For You" recommended feed, and eventually topic-based
-timelines) as regular columns — not just chronological ones.
+**Old TweetDeck, now with X's algorithmic timelines.**
+
+TweetDeckV2 is a fork of [OldTweetDeck](https://github.com/dimdenGD/OldTweetDeck) by [dimden](https://github.com/dimdenGD). It keeps everything OldTweetDeck does — the classic TweetDeck interface running on `x.com/i/tweetdeck` — and adds something the original TweetDeck never had: columns for X's **recommended feeds**.
+
+Classic TweetDeck columns are all reverse-chronological. With this fork you can also add the ranked **For you** feed and any of **70+ topic timelines** (Technology, AI, Soccer, Crypto, Anime, and more) as regular columns, side by side with your Home, Lists, Search and Notifications.
 
 > [!NOTE]
-> Since Twitter made likes private, the Likes tab aren't loading anymore.
-> This can not be fixed since the API to retrieve the likes is gone. Same thing with Activity column.
-
-![Screenshot](https://lune.dimden.dev/9713d947d56.png)
+> Since Twitter made likes private, the Likes tab no longer loads. This can't be fixed because the API that returned likes is gone. The same applies to the Activity column.
 
 ### Other languages
 
-[한국어 README](docs/README_KO.md)
-[日本語 README](docs/README_JA.md)
+[한국어 README](docs/README_KO.md) · [日本語 README](docs/README_JA.md) — these describe the original OldTweetDeck and don't cover the features added in this fork.
 
-## What's different in this fork
+---
 
-Classic TweetDeck columns are all reverse-chronological: Home, List, Search, User,
-Mentions — whatever source you pick, you get every post in order, no ranking. This
-fork adds a way to pull in X's own recommendation-ranked feeds as a column too.
+## What's new in this fork
 
-- **"For You" (algorithmic) column** — adds the same ranked feed X shows on its native
-  "For You" tab as a normal, addable TweetDeck column, with infinite scroll / load-more
-  support like any other column.
-- **Topic timelines** (in progress) — support for adding curated topic feeds (Sports,
-  Anime, News, etc.) as columns, the same way you can browse them in X's native
-  "Timelines" panel.
+### 1. A new column type: **For you & Topics**
 
-See [FORYOU_FEATURE.md](FORYOU_FEATURE.md) for the technical write-up of how this is
-implemented, current status, and what's left to finish the topic timelines feature.
+Open **Add column** and you'll find a new **For you & Topics** tile next to the classic column types.
+
+![The "Choose a column type" modal with the new "For you & Topics" tile](screenshot-add-column.png)
+
+### 2. Pick the For you feed or any topic
+
+The tile opens a searchable picker. **For you** is the same ranked feed as the native "For you" tab on X. Below it is the full catalog of X's topic timelines — type a few letters to filter and click one to add it as a column.
+
+![The "For you & Topics" picker with a search box and the list of topics](screenshot-topics-picker.png)
+
+### 3. Algorithmic columns next to your regular ones
+
+Each algorithmic column behaves like any other TweetDeck column: infinite scroll, load more, and it stays in your layout across reloads. Here, **For you**, **Software Development** and **Artificial Intelligence** run next to a regular Notifications column.
+
+![TweetDeck with For you, Software Development and Artificial Intelligence columns next to Notifications](screenshot-columns.png)
+
+### Available topics
+
+Technology · Artificial Intelligence · Science · Software Development · Startups · Robotics · Space · Biotech · Stocks & Economy · Business & Finance · Personal Finance · Real Estate · Crypto · Politics · Elections · News · Crime · Sports · Soccer · NFL · Basketball · Baseball · Ice Hockey · Tennis · Golf · Boxing · MMA & Wrestling · Cricket · Rugby · Cycling · Formula 1 · Racing & Motorsports · Winter Sports · Olympics · Esports · Gaming · Anime · Movies & TV · Celebrities · Memes · Podcasts · Music · Pop · Rock · Hip Hop · Jazz · Country Music · Electronic Music · K-pop · J-pop · Concerts · Dance · Art · Digital Art · Design · Photography · Fashion · Beauty · Food & Drink · Travel · Cars · Motorcycles · Nature & Outdoors · Pets · Home & Garden · Shopping · Health & Fitness · Mental Health · Education · Careers · Dating & Relationships · Marriage & Family
+
+### Other changes from upstream
+
+- **Updates come from this fork.** The extension downloads its TweetDeck files from this repository instead of the upstream one, so the fork's features aren't overwritten on load.
+- **Fix for tweets failing to parse.** X is moving user fields out of the `legacy` object in its API responses; tweets without it no longer break the Home and algorithmic timelines.
+
+---
+
+## How it works
+
+OldTweetDeck runs the original TweetDeck web client and translates its legacy REST calls into X's current GraphQL API. This fork builds on that bridge without touching the vendored TweetDeck bundle:
+
+- **For you** and every topic are served by X's `HomeTimeline` GraphQL query. A topic timeline is the same query with an extra `tag` variable holding the topic id.
+- Each algorithmic feed is exposed to TweetDeck as a **synthetic list** with a reserved id, so it reuses TweetDeck's existing list-column plumbing (rendering, pagination, saving the layout).
+- The **For you & Topics** tile and picker are added to TweetDeck's column-type modal at runtime.
+
+All of it lives in [`src/interception.js`](src/interception.js). Development notes (in Portuguese) are in [FORYOU_FEATURE.md](FORYOU_FEATURE.md).
+
+---
 
 ## Installation
 
-Note: Do not delete the extension files (unzipped archive for Chromium, zip file for Firefox) after installation.
+Note: don't delete the extension files (the unpacked folder for Chromium, the zip file for Firefox) after installing.
 
-### Chromium (Chrome, Edge, Opera, Brave, Etc.)
+To build the zip packages, run `npm install` and then `npm run build`. This creates `build/OldTweetDeckChrome.zip` and `build/OldTweetDeckFirefox.zip`.
 
-1. Download or clone this repository
-2. Run `npm install` and `npm run build` to generate the packaged extension (or use the unzipped source folder directly)
-3. Go to extensions page (`chrome://extensions`)
-4. Enable developer mode (there should be a switch somewhere on that page)
-5. Press "Load unpacked" button
-6. Select the folder with the extension files
-7. Go to https://x.com/i/tweetdeck and enjoy old TweetDeck
+### Chromium (Chrome, Edge, Opera, Brave, etc.)
+
+1. Clone or download this repository. You can load the folder directly, or unzip `build/OldTweetDeckChrome.zip` if you built it.
+2. Go to the extensions page (`chrome://extensions`).
+3. Enable **Developer mode**.
+4. Click **Load unpacked**.
+5. Select the extension folder.
+6. Go to https://x.com/i/tweetdeck.
+
+If you also have OldTweetDeck from the upstream project installed, disable it — only one of them should be active.
 
 ### Firefox
 
 #### Nightly / Developer Edition
 
-1. Build the Firefox zip with `npm run build`
-2. Go to Firefox Configuration Editor (`about:config`)
-3. Change the preference `xpinstall.signatures.required` to false
-4. Go to addons page (`about:addons`)
-5. Press "Install Add-on From File..." button
-6. Select the zip file you built
-7. Go to https://x.com/i/tweetdeck and enjoy old TweetDeck
+1. Build `build/OldTweetDeckFirefox.zip` as described above.
+2. Go to the Configuration Editor (`about:config`).
+3. Set `xpinstall.signatures.required` to `false`.
+4. Go to the add-ons page (`about:addons`).
+5. Click **Install Add-on From File...**.
+6. Select the zip file.
+7. Go to https://x.com/i/tweetdeck.
 
 #### Stable
 
-**It's not recommended to use this extension on Stable version.**
+**Using this extension on Firefox Stable is not recommended.**
 
-1. Go to `about:debugging#/runtime/this-firefox`
-2. Press "Load Temporary Add-on" and select the zip file you built
-3. **Installing this way on Firefox will remove it after closing browser.**
+1. Go to `about:debugging#/runtime/this-firefox`.
+2. Click **Load Temporary Add-on** and select the zip file.
+3. **An add-on installed this way is removed when the browser closes.**
 
 ### Safari
 
-NOT SUPPORTED
+Not supported.
+
+---
 
 ## Updating
 
-If TweetDeck's files were updated, you should receive updated files automatically without having to reinstall after refreshing tab (unless you set `localStorage.OTDalwaysUseLocalFiles = '1'`).
-If extension files were updated, you have to reinstall extension to get new update.
+TweetDeck's files are fetched from this repository each time the tab loads, so updates to them arrive automatically after a refresh — unless you've set `localStorage.OTDalwaysUseLocalFiles = '1'`, which makes the extension use the files bundled in your local copy instead.
+
+Changes to the extension files themselves (such as `manifest.json` or `src/injection.js`) require reinstalling or reloading the extension.
+
+---
 
 ## FAQ
 
-#### Extension stopped working.
+#### The extension stopped working.
 
-Before opening an issue, try to reinstall extension.
+Try reinstalling the extension before opening an issue.
 
-#### 'Link another account you own' doesn't work.
+#### The For you or topic columns stopped loading.
 
-See https://github.com/dimdenGD/OldTweetDeck/issues/259#issuecomment-2281786253 for a workaround.
+X periodically rotates the internal ids of its GraphQL queries. When the `HomeTimeline` id changes, algorithmic columns stop loading until it's updated in [`src/interception.js`](src/interception.js). You may also be rate limited — see below.
 
-#### Some column isn't loading for me.
+#### Some column isn't loading.
 
-You're getting rate limited. They'll come back after some time.
+You're being rate limited. Columns come back after a while.
 
-#### Likes tab aren't loading for me.
+#### "Link another account you own" doesn't work.
 
-This can not be fixed. Since Twitter made likes private, the API to retrieve likes is gone.
+See [this comment](https://github.com/dimdenGD/OldTweetDeck/issues/259#issuecomment-2281786253) for a workaround.
+
+#### The Likes tab isn't loading.
+
+This can't be fixed. Since Twitter made likes private, the API that returned them is gone.
+
+---
 
 ## Credits
 
-This project builds on [OldTweetDeck](https://github.com/dimdenGD/OldTweetDeck) by
-[dimdenGD](https://github.com/dimdenGD). All the heavy lifting of re-hosting the
-legacy TweetDeck client and bridging its API calls to X's modern GraphQL endpoints
-comes from that project — this fork extends it with algorithmic/recommended timeline
-support.
+TweetDeckV2 is built on **[OldTweetDeck](https://github.com/dimdenGD/OldTweetDeck) by [dimden](https://github.com/dimdenGD)**. Bringing the legacy TweetDeck client back and bridging it to X's modern API is entirely that project's work; this fork adds the algorithmic For you and topic timelines on top of it. Thanks as well to the OldTweetDeck contributors and translators.
+
+If you'd like 2015–2018 Twitter back too, check out dimden's [OldTwitter](https://github.com/dimdenGD/OldTwitter).
+
+## License
+
+MIT, same as upstream. See [LICENSE](LICENSE). Original copyright © 2023 dimden.
