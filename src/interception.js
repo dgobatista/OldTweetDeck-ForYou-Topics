@@ -208,7 +208,10 @@ function parseTweet(res) {
         let result = res.core.user_results.result;
         tweet.conversation_id = +tweet.conversation_id_str;
         tweet.text = tweet.full_text;
-        tweet.user = result.legacy;
+        // X is migrating user fields out of `legacy` into `core`/`avatar`/etc,
+        // so `legacy` can now be missing entirely. The fallbacks below already
+        // repopulate name/screen_name/avatar/created_at from the new shape.
+        tweet.user = result.legacy || {};
         tweet.user.id = +tweet.user_id_str;
         tweet.user.id_str = tweet.user_id_str;
         if (result.is_blue_verified) {
@@ -508,6 +511,130 @@ function getCurrentUserId() {
 // safely hand-patched without a build pipeline or source maps.
 const FORYOU_LIST_ID = "900000000000001";
 
+// Topic timelines ("Tech", "Sports", ...) are the *same* HomeTimeline query with an
+// extra `tag` variable carrying the topic id, so each one is just another synthetic
+// list. Their reserved ids come out of this block, and the tag -> id assignment is
+// persisted: a saved column stores the list id, so it has to keep meaning the same
+// topic across reloads.
+const TOPIC_LIST_ID_BASE = 900000000000010n;
+let topicListIds = JSON.parse(localStorage.OTDalgoTopics || "{}");
+
+// listId -> { tag, name }. A null tag means the plain algorithmic "For you" feed.
+const algoTimelines = new Map([[FORYOU_LIST_ID, { tag: null, name: "🔮 For you" }]]);
+
+function listIdForTopic(tag) {
+    if (!topicListIds[tag]) {
+        let used = new Set(Object.values(topicListIds));
+        let id = TOPIC_LIST_ID_BASE;
+        while (used.has(id.toString())) id += 1n;
+        topicListIds[tag] = id.toString();
+        localStorage.OTDalgoTopics = JSON.stringify(topicListIds);
+    }
+    return topicListIds[tag];
+}
+
+// topics: [{ tag, name }]
+function registerAlgoTopics(topics) {
+    for (let topic of topics || []) {
+        if (!topic || !topic.tag || !topic.name) continue;
+        algoTimelines.set(listIdForTopic(topic.tag), {
+            tag: String(topic.tag),
+            name: `🔮 ${topic.name}`,
+        });
+    }
+}
+
+// X's topic timelines (the ones offered in its "Timelines" sheet). Topic ids are
+// global entities, not per-account, so one catalog serves every user. Captured from
+// PinnedTimelinesManagementSheetQuery on 2026-09-15; transient event timelines
+// (e.g. breaking-news conflicts) are deliberately left out since they rotate.
+const ALGO_TOPIC_CATALOG = [
+    { tag: "1925949722688126976", name: "Technology" },
+    { tag: "1925953013547450368", name: "Artificial Intelligence" },
+    { tag: "1925949744683114496", name: "Science" },
+    { tag: "1925952876284727296", name: "Stocks & Economy" },
+    { tag: "1925949659857530880", name: "Business & Finance" },
+    { tag: "1925950498420469760", name: "Soccer" },
+    { tag: "1925952771733262336", name: "Politics" },
+    { tag: "1925949452197478400", name: "Sports" },
+    { tag: "1925949898106540032", name: "Art" },
+    { tag: "1925949788068909057", name: "Movies & TV" },
+    { tag: "1925949766673797120", name: "Gaming" },
+    { tag: "1925949693290295298", name: "Crypto" },
+    { tag: "1925951614067650560", name: "NFL" },
+    { tag: "1925949503837798401", name: "Anime" },
+    { tag: "1925949812844769280", name: "Travel" },
+    { tag: "1925949835649126400", name: "Food & Drink" },
+    { tag: "1925950576740675584", name: "Baseball" },
+    { tag: "1925950530842464256", name: "Basketball" },
+    { tag: "1925950199861538818", name: "Beauty" },
+    { tag: "1925950713982537888", name: "Boxing" },
+    { tag: "1925950361245786112", name: "Careers" },
+    { tag: "1925950007624028160", name: "Cars" },
+    { tag: "1925950249245282304", name: "Pets" },
+    { tag: "1925949555071176704", name: "Celebrities" },
+    { tag: "1925949604224196608", name: "Music" },
+    { tag: "1925952353485602816", name: "Country Music" },
+    { tag: "1925949634972626944", name: "News" },
+    { tag: "1925950383899267072", name: "Dance" },
+    { tag: "1925950276835454977", name: "Dating & Relationships" },
+    { tag: "1925954681496322048", name: "Design" },
+    { tag: "1925950405709631490", name: "Education" },
+    { tag: "1925952257893257217", name: "Electronic Music" },
+    { tag: "1925952916411564032", name: "Startups" },
+    { tag: "1925950783448576000", name: "Esports" },
+    { tag: "1925954059338493952", name: "Marriage & Family" },
+    { tag: "1925949932181082112", name: "Fashion" },
+    { tag: "1925952179791151105", name: "Pop" },
+    { tag: "1925950690574180352", name: "Golf" },
+    { tag: "1925952056088530944", name: "K-pop" },
+    { tag: "1925949876694556672", name: "Memes" },
+    { tag: "1925949856834588672", name: "Health & Fitness" },
+    { tag: "1925950600140718080", name: "MMA & Wrestling" },
+    { tag: "1943810034309246976", name: "Racing & Motorsports" },
+    { tag: "1925950100397793280", name: "Motorcycles" },
+    { tag: "1925950228047216640", name: "Nature & Outdoors" },
+    { tag: "1925950813043662848", name: "Ice Hockey" },
+    { tag: "1943811470724153345", name: "Olympics" },
+    { tag: "1925952988486447104", name: "Personal Finance" },
+    { tag: "1925954143472017408", name: "Photography" },
+    { tag: "1925950433807175680", name: "Podcasts" },
+    { tag: "1925952947197784064", name: "Real Estate" },
+    { tag: "1925953169307189248", name: "Robotics" },
+    { tag: "1925952228818354177", name: "Rock" },
+    { tag: "1925950895595876352", name: "Rugby" },
+    { tag: "1925949979966701568", name: "Shopping" },
+    { tag: "1925950954962096130", name: "Winter Sports" },
+    { tag: "1925953040130953216", name: "Software Development" },
+    { tag: "1925953141452718081", name: "Space" },
+    { tag: "1925950625835008001", name: "Tennis" },
+    { tag: "1925950341452845057", name: "Home & Garden" },
+    { tag: "1925950653035151360", name: "Cricket" },
+    { tag: "1925950746756800513", name: "Formula 1" },
+    { tag: "1925950926910582786", name: "Cycling" },
+    { tag: "1925952123960709120", name: "J-pop" },
+    { tag: "1925952145615974400", name: "Concerts" },
+    { tag: "1925952203962896384", name: "Hip Hop" },
+    { tag: "1925952300213768192", name: "Jazz" },
+    { tag: "1925952744239620096", name: "Crime" },
+    { tag: "1925952820714332161", name: "Elections" },
+    { tag: "1925953107038519296", name: "Biotech" },
+    { tag: "1925953421338726400", name: "Mental Health" },
+    { tag: "1925954197326831616", name: "Digital Art" },
+];
+
+registerAlgoTopics(ALGO_TOPIC_CATALOG);
+
+// Extra topics declared by hand (also overrides a catalog entry's name):
+//   localStorage.OTDalgoTopicsManual = JSON.stringify([
+//       { tag: "1925949722688126976", name: "Tecnologia" },
+//   ])
+try {
+    registerAlgoTopics(JSON.parse(localStorage.OTDalgoTopicsManual || "[]"));
+} catch (e) {
+    console.error("[OTD] bad OTDalgoTopicsManual:", e);
+}
+
 // A dedicated fake owner, deliberately NOT the real current user's id, so this
 // never collides with (and overwrites) the real account's cached profile.
 const FORYOU_FAKE_USER = {
@@ -515,7 +642,7 @@ const FORYOU_FAKE_USER = {
     id_str: "1",
     screen_name: "oldtweetdeck",
     name: "OldTweetDeck",
-    profile_image_url_https: "",
+    profile_image_url_https: "https://abs.twimg.com/sticky/default_profile_images/default_profile_normal.png",
     description: "",
     entities: {},
     created_at: "Mon Mar 21 00:00:00 +0000 2016",
@@ -527,14 +654,18 @@ const FORYOU_FAKE_USER = {
     protected: false,
 };
 
-function buildForYouList() {
+function buildAlgoList(listId) {
+    let meta = algoTimelines.get(listId);
+    let slug = meta.name.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase() || "algo";
     return {
-        id: Number(FORYOU_LIST_ID),
-        id_str: FORYOU_LIST_ID,
-        name: "🔮 Para Você (Algorítmico)",
-        full_name: "@oldtweetdeck/for-you-algo",
-        slug: "for-you-algo",
-        description: "Timeline algorítmica do X (mesmo feed do 'Para você'), servida via OldTweetDeck.",
+        id: Number(listId),
+        id_str: listId,
+        name: meta.name,
+        full_name: `@oldtweetdeck/${slug}`,
+        slug: slug,
+        description: meta.tag
+            ? "X's algorithmic timeline for this topic."
+            : `X's algorithmic timeline - the same feed as the native "For you" tab.`,
         subscriber_count: 0,
         member_count: 0,
         uri: "/i/lists",
@@ -554,8 +685,13 @@ function injectForYouList(xhr, wrapperKey) {
     try {
         let list = wrapperKey ? data?.[wrapperKey] : data;
         if (!Array.isArray(list)) list = [];
-        if (!list.some((l) => l.id_str === FORYOU_LIST_ID)) {
-            list = [buildForYouList(), ...list];
+        // Only "For you" goes into the list pickers; the topic catalog has its own
+        // picker, and 70-odd topics would bury the user's real lists.
+        let missing = [FORYOU_LIST_ID].filter(
+            (id) => !list.some((l) => l.id_str === id)
+        );
+        if (missing.length) {
+            list = [...missing.map(buildAlgoList), ...list];
         }
         if (wrapperKey) {
             if (!data || typeof data !== "object") data = {};
@@ -568,6 +704,152 @@ function injectForYouList(xhr, wrapperKey) {
     }
     return data;
 }
+
+// Adds an algorithmic column (For you or a topic) straight from the "Choose a column
+// type" modal, reusing the (working) list-column plumbing: it is just a normal list
+// column whose metadata points at a reserved synthetic list id.
+function addAlgoColumn(listId) {
+    let client = TD.controller.clients.getClientsByService("twitter")[0];
+    if (!client) {
+        console.warn("[OTD] algorithmic column: no twitter client yet");
+        return;
+    }
+    TD.cache.names.addScreenName(FORYOU_FAKE_USER.id_str, FORYOU_FAKE_USER.screen_name);
+    TD.cache.names.addListName(listId, algoTimelines.get(listId).name);
+    let column = TD.controller.columnManager.makeColumnFor({
+        type: "list",
+        service: "twitter",
+        accountKey: client.oauth.account.getKey(),
+        metaString: `${FORYOU_FAKE_USER.id_str}/${listId}`,
+    });
+    TD.controller.columnManager.addColumnToUI(column);
+    if (TD.components.OpenColumn.instance) TD.components.OpenColumn.instance.destroy();
+}
+
+// Swaps the modal's column-type grid for a searchable list of For you + topics.
+function showAlgoPicker(grid) {
+    let content = grid.parentElement;
+    let title = content.closest(".js-modal-panel")?.querySelector(".js-header-title");
+    let previousTitle = title ? title.textContent : "";
+
+    let picker = document.createElement("div");
+    picker.className = "otd-algo-picker padding-v--10";
+
+    let back = document.createElement("a");
+    back.href = "#";
+    back.className = "block margin-h--8 margin-b--8 txt-size--13";
+    back.textContent = "\u2190 Column types";
+
+    let search = document.createElement("input");
+    search.type = "search";
+    search.placeholder = "Search topics";
+    search.className = "width-p--85 margin-b--8 margin-h--8 padding-v--0 padding-h--8";
+
+    let list = document.createElement("ul");
+    list.className = "lst-group";
+    list.style.maxHeight = "420px";
+    list.style.overflowY = "auto";
+
+    let entries = [...algoTimelines.entries()].sort(([a, ma], [b, mb]) => {
+        if (a === FORYOU_LIST_ID) return -1;
+        if (b === FORYOU_LIST_ID) return 1;
+        return ma.name.localeCompare(mb.name);
+    });
+    for (let [listId, meta] of entries) {
+        let li = document.createElement("li");
+        let a = document.createElement("a");
+        a.href = "#";
+        a.className = "list-twitter-list";
+        let inner = document.createElement("div");
+        inner.className = "inner";
+        let name = document.createElement("div");
+        name.className = "txt-ellipsis";
+        let strong = document.createElement("strong");
+        strong.textContent = meta.name;
+        name.appendChild(strong);
+        inner.appendChild(name);
+        let desc = document.createElement("p");
+        desc.className = "txt-ellipsis";
+        desc.textContent = buildAlgoList(listId).description;
+        a.append(inner, desc);
+        a.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            try {
+                addAlgoColumn(listId);
+            } catch (err) {
+                console.error("[OTD] algorithmic column failed:", err);
+            }
+        });
+        li.dataset.search = meta.name.toLowerCase();
+        li.appendChild(a);
+        list.appendChild(li);
+    }
+
+    search.addEventListener("input", () => {
+        let q = search.value.trim().toLowerCase();
+        // Inline display rather than [hidden]: bundle.css rules on list items would win over it.
+        for (let li of list.children) {
+            li.style.display = q === "" || li.dataset.search.includes(q) ? "" : "none";
+        }
+    });
+    back.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        picker.remove();
+        grid.style.display = "";
+        if (title) title.textContent = previousTitle;
+    });
+
+    picker.append(back, search, list);
+    grid.style.display = "none";
+    content.appendChild(picker);
+    if (title) title.textContent = "For you & Topics";
+    search.focus();
+}
+
+// bundle.js builds that modal's grid from TD.controller.columnManager.DISPLAY_ORDER,
+// and every entry there needs a real column type wired through the feed/column
+// enums. Rather than hand-patching minified enums, the tile is appended to the
+// rendered grid and given its own click handler. bundle.js binds its own handler
+// to the launchers it knows about at construction time, so the extra <li> never
+// reaches it.
+function installForYouLauncherTile() {
+    let container = document.querySelector(".js-modals-container");
+    if (!container) {
+        setTimeout(installForYouLauncherTile, 500);
+        return;
+    }
+    new MutationObserver(() => {
+        let grid = container.querySelector("ul.lst-launcher");
+        if (!grid || grid.querySelector('[data-type="otd-foryou"]')) return;
+
+        let li = document.createElement("li");
+        li.className = "js-item-launch";
+        li.dataset.type = "otd-foryou";
+        li.innerHTML =
+            '<a href="#" class="btn">' +
+            '<i class="block column-type-icon icon color-twitter-blue icon-magic-search"></i>' +
+            '<span class="txt-size--14 with-linebreaks txt-weight--500">For you &amp; Topics</span>' +
+            "</a>";
+        li.querySelector("a").addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            try {
+                showAlgoPicker(grid);
+            } catch (err) {
+                console.error("[OTD] algorithmic picker failed:", err);
+            }
+        });
+
+        // Keep the 4-wide top row intact: land as the first tile of the second row.
+        let anchor = grid.querySelector("li.js-item-launch:not(.top-row)");
+        if (anchor) grid.insertBefore(li, anchor);
+        else grid.appendChild(li);
+    }).observe(container, { childList: true, subtree: true });
+}
+
+installForYouLauncherTile();
 
 function parseHomeTimelineTweets(xhr, data, seenKey) {
     if (data.errors && data.errors[0]) {
@@ -1053,6 +1335,30 @@ const proxyRoutes = [
         method: "GET",
         afterRequest: (xhr) => injectForYouList(xhr, null),
     },
+    // bundle.js resolves a list column's title through lists/show.json whenever its
+    // name cache misses or is over a week old; answer locally for synthetic lists.
+    {
+        path: "/1.1/lists/show.json",
+        method: "GET",
+        beforeRequest: (xhr) => {
+            try {
+                let listId = new URL(xhr.modUrl).searchParams.get("list_id");
+                if (algoTimelines.has(listId)) xhr.storage.algoListId = listId;
+            } catch (e) {
+                console.error(e);
+            }
+        },
+        openHandler: (xhr, method, url, async, username, password) => {
+            if (!xhr.storage.algoListId) xhr.open(method, url, async, username, password);
+        },
+        sendHandler: (xhr, body) => {
+            if (xhr.storage.algoListId) emulateResponse(xhr);
+            else xhr.send(body);
+        },
+        afterRequest: (xhr) => {
+            return xhr.storage.algoListId ? buildAlgoList(xhr.storage.algoListId) : xhr.responseText;
+        },
+    },
     // List timeline (also handles the synthetic "For You" algorithmic list)
     {
         path: "/1.1/lists/statuses.json",
@@ -1066,24 +1372,28 @@ const proxyRoutes = [
                 let max_id = params.get("max_id");
                 let since_id = params.get("since_id");
 
-                if (list_id === FORYOU_LIST_ID) {
+                let algo = algoTimelines.get(list_id);
+                if (algo) {
                     xhr.storage.isForYou = true;
+                    xhr.storage.algoKey = list_id;
                     let variables = {"count":40,"includePromotedContent":true,"latestControlAvailable":true,"withCommunity":true};
                     let features = {"rweb_video_screen_enabled":false,"profile_label_improvements_pcf_label_in_post_enabled":true,"responsive_web_profile_redirect_enabled":false,"rweb_tipjar_consumption_enabled":true,"verified_phone_label_enabled":false,"creator_subscriptions_tweet_preview_api_enabled":true,"responsive_web_graphql_timeline_navigation_enabled":true,"responsive_web_graphql_skip_user_profile_image_extensions_enabled":false,"premium_content_api_read_enabled":false,"communities_web_enable_tweet_community_results_fetch":true,"c9s_tweet_anatomy_moderator_badge_enabled":true,"responsive_web_grok_analyze_button_fetch_trends_enabled":false,"responsive_web_grok_analyze_post_followups_enabled":true,"responsive_web_jetfuel_frame":true,"responsive_web_grok_share_attachment_enabled":true,"articles_preview_enabled":true,"responsive_web_edit_tweet_api_enabled":true,"graphql_is_translatable_rweb_tweet_is_translatable_enabled":true,"view_counts_everywhere_api_enabled":true,"longform_notetweets_consumption_enabled":true,"responsive_web_twitter_article_tweet_consumption_enabled":true,"tweet_awards_web_tipping_enabled":false,"responsive_web_grok_show_grok_translated_post":false,"responsive_web_grok_analysis_button_from_backend":true,"creator_subscriptions_quote_tweet_preview_enabled":false,"freedom_of_speech_not_reach_fetch_enabled":true,"standardized_nudges_misinfo":true,"tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled":true,"longform_notetweets_rich_text_read_enabled":true,"longform_notetweets_inline_media_enabled":true,"responsive_web_grok_image_annotation_enabled":true,"responsive_web_grok_imagine_annotation_enabled":true,"responsive_web_grok_community_note_auto_translation_is_enabled":false,"responsive_web_enhance_cards_enabled":false};
 
+                    if (algo.tag) variables.tag = algo.tag;
                     let user_id = xhr.modReqHeaders["x-act-as-user-id"] ?? getCurrentUserId();
                     xhr.storage.user_id = user_id;
+                    let ns = `algo-${list_id}-${user_id}`;
                     if (max_id) {
                         let bn = BigInt(max_id);
                         bn += BigInt(1);
-                        if (cursors[`foryou-${user_id}-${bn}`]) {
-                            variables.cursor = cursors[`foryou-${user_id}-${bn}`];
+                        if (cursors[`${ns}-${bn}`]) {
+                            variables.cursor = cursors[`${ns}-${bn}`];
                         }
                     }
                     if (since_id) {
                         let bn = BigInt(since_id);
-                        if (cursors[`foryou-${user_id}-${bn}-top`]) {
-                            variables.cursor = cursors[`foryou-${user_id}-${bn}-top`];
+                        if (cursors[`${ns}-${bn}-top`]) {
+                            variables.cursor = cursors[`${ns}-${bn}-top`];
                             xhr.storage.cursor = true;
                             xhr.storage.since_id = since_id;
                         }
@@ -1161,21 +1471,22 @@ const proxyRoutes = [
             }
 
             if (xhr.storage.isForYou) {
-                let { tweets, entries } = parseHomeTimelineTweets(xhr, data, `foryou-${xhr.storage.user_id}`);
+                let ns = `algo-${xhr.storage.algoKey}-${xhr.storage.user_id}`;
+                let { tweets, entries } = parseHomeTimelineTweets(xhr, data, ns);
                 if (!entries || tweets.length === 0) return tweets;
 
                 let bottomCursor = entries.find(
                     (e) => e.entryId.startsWith("sq-cursor-bottom-") || e.entryId.startsWith("cursor-bottom-")
                 );
                 if (bottomCursor) {
-                    cursors[`foryou-${xhr.storage.user_id}-${tweets[tweets.length - 1].id_str}`] = bottomCursor.content.value;
+                    cursors[`${ns}-${tweets[tweets.length - 1].id_str}`] = bottomCursor.content.value;
                 }
                 let topCursor = entries.find(
                     (e) => e.entryId.startsWith("sq-cursor-top-") || e.entryId.startsWith("cursor-top-")
                 )?.content?.value;
                 if (topCursor) {
-                    if (tweets[0]) cursors[`foryou-${xhr.storage.user_id}-${tweets[0].id_str}-top`] = topCursor;
-                    if (tweets[1]) cursors[`foryou-${xhr.storage.user_id}-${tweets[1].id_str}-top`] = topCursor;
+                    if (tweets[0]) cursors[`${ns}-${tweets[0].id_str}-top`] = topCursor;
+                    if (tweets[1]) cursors[`${ns}-${tweets[1].id_str}-top`] = topCursor;
                 }
                 return tweets;
             }
