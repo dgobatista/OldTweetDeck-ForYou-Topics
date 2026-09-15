@@ -810,43 +810,65 @@ function showAlgoPicker(grid) {
 
 // bundle.js builds that modal's grid from TD.controller.columnManager.DISPLAY_ORDER,
 // and every entry there needs a real column type wired through the feed/column
-// enums. Rather than hand-patching minified enums, the tile is appended to the
-// rendered grid and given its own click handler. bundle.js binds its own handler
-// to the launchers it knows about at construction time, so the extra <li> never
-// reaches it.
+// enums. Rather than hand-patching minified enums, the tile is added to the grid
+// the moment OpenColumnHome builds it. bundle.js binds its own click handler only
+// to the launchers present at construction time, so the extra <li> never reaches it.
+function addForYouTile(grid) {
+    if (!grid || grid.querySelector('[data-type="otd-foryou"]')) return;
+
+    let li = document.createElement("li");
+    li.className = "js-item-launch";
+    li.dataset.type = "otd-foryou";
+    li.innerHTML =
+        '<a href="#" class="btn">' +
+        '<i class="block column-type-icon icon color-twitter-blue icon-magic-search"></i>' +
+        '<span class="txt-size--14 with-linebreaks txt-weight--500">For you &amp; Topics</span>' +
+        "</a>";
+    li.querySelector("a").addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        try {
+            showAlgoPicker(grid);
+        } catch (err) {
+            console.error("[OTD] algorithmic picker failed:", err);
+        }
+    });
+
+    // Keep the 4-wide top row intact: land as the first tile of the second row.
+    let anchor = grid.querySelector("li.js-item-launch:not(.top-row)");
+    if (anchor) grid.insertBefore(li, anchor);
+    else grid.appendChild(li);
+}
+
+// The "Choose a column type" grid lives in #open-modal, which is part of the app
+// layout template rather than .js-modals-container, and gets re-rendered with the
+// app. Wrapping the component's constructor is independent of where it is mounted.
+// OpenColumn.go looks TD.components.OpenColumnHome up at call time, so the swap
+// takes effect for every modal opened afterwards.
 function installForYouLauncherTile() {
-    let container = document.querySelector(".js-modals-container");
-    if (!container) {
+    let Home = window.TD && TD.components && TD.components.OpenColumnHome;
+    if (!Home) {
         setTimeout(installForYouLauncherTile, 500);
         return;
     }
-    new MutationObserver(() => {
-        let grid = container.querySelector("ul.lst-launcher");
-        if (!grid || grid.querySelector('[data-type="otd-foryou"]')) return;
+    if (Home.__otdWrapped) return;
 
-        let li = document.createElement("li");
-        li.className = "js-item-launch";
-        li.dataset.type = "otd-foryou";
-        li.innerHTML =
-            '<a href="#" class="btn">' +
-            '<i class="block column-type-icon icon color-twitter-blue icon-magic-search"></i>' +
-            '<span class="txt-size--14 with-linebreaks txt-weight--500">For you &amp; Topics</span>' +
-            "</a>";
-        li.querySelector("a").addEventListener("click", (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            try {
-                showAlgoPicker(grid);
-            } catch (err) {
-                console.error("[OTD] algorithmic picker failed:", err);
-            }
-        });
-
-        // Keep the 4-wide top row intact: land as the first tile of the second row.
-        let anchor = grid.querySelector("li.js-item-launch:not(.top-row)");
-        if (anchor) grid.insertBefore(li, anchor);
-        else grid.appendChild(li);
-    }).observe(container, { childList: true, subtree: true });
+    let Wrapped = function (...args) {
+        let home = new Home(...args);
+        try {
+            addForYouTile(home.$node && home.$node[0]);
+        } catch (err) {
+            console.error("[OTD] For you tile failed:", err);
+        }
+        return home;
+    };
+    // Statics (URL_BASE, DATAMINR_ADD_SELECTOR) are read off this constructor by
+    // other bundle.js modules; inheriting from the original serves all of them
+    // however .statics() happened to define them.
+    Object.setPrototypeOf(Wrapped, Home);
+    Wrapped.prototype = Home.prototype;
+    Wrapped.__otdWrapped = true;
+    TD.components.OpenColumnHome = Wrapped;
 }
 
 installForYouLauncherTile();
