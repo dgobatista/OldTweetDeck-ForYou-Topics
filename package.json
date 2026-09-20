@@ -4,7 +4,8 @@
   "description": "Returns old TweetDeck!",
   "main": "pack.js",
   "scripts": {
-    "build": "node pack.js"
+    "build": "node pack.js",
+    "test": "node tests/load.test.js && node tests/tile.test.js"
   },
   "repository": {
     "type": "git",
