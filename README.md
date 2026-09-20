@@ -54,7 +54,7 @@ OldTweetDeck runs the original TweetDeck web client and translates its legacy RE
 - Each algorithmic feed is exposed to TweetDeck as a **synthetic list** with a reserved id, so it reuses TweetDeck's existing list-column plumbing (rendering, pagination, saving the layout).
 - The **For you & Topics** tile and picker are added to TweetDeck's column-type modal at runtime.
 
-All of it lives in [`src/interception.js`](src/interception.js). Development notes (in Portuguese) are in [FORYOU_FEATURE.md](FORYOU_FEATURE.md).
+All of it lives in [`src/interception.js`](src/interception.js).
 
 ---
 
