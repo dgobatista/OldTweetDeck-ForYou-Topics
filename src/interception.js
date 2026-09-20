@@ -545,6 +545,13 @@ function getCurrentUserId() {
 // safely hand-patched without a build pipeline or source maps.
 const FORYOU_LIST_ID = "900000000000001";
 
+// X rotates the internal ids of its GraphQL operations every so often, and when
+// HomeTimeline's changes the For you column and every topic stop loading at once.
+// Setting localStorage.OTDhomeTimelineQueryId to the current id brings them back
+// without waiting for a release; parseHomeTimelineTweets points at it on failure.
+const HOME_TIMELINE_QUERY_ID =
+    localStorage.OTDhomeTimelineQueryId || "Dw2wl35E3OV4X6UlEAf0bg";
+
 // Topic timelines ("Tech", "Sports", ...) are the *same* HomeTimeline query with an
 // extra `tag` variable carrying the topic id, so each one is just another synthetic
 // list. Their reserved ids come out of this block, and the tag -> id assignment is
@@ -922,6 +929,11 @@ installForYouLauncherTile();
 
 function parseHomeTimelineTweets(xhr, data, seenKey) {
     if (data.errors && data.errors[0]) {
+        console.error(
+            `[OTD] HomeTimeline (query id ${HOME_TIMELINE_QUERY_ID}) returned an error: ` +
+                `${data.errors[0].message}. If X has rotated the id, set ` +
+                `localStorage.OTDhomeTimelineQueryId to the current one and reload.`
+        );
         return { tweets: [], entries: null };
     }
     let instructions = data.data.home.home_timeline_urt.instructions;
@@ -1453,7 +1465,7 @@ const proxyRoutes = [
                             xhr.storage.since_id = since_id;
                         }
                     }
-                    xhr.modUrl = `${NEW_API}/Dw2wl35E3OV4X6UlEAf0bg/HomeTimeline?${generateParams(
+                    xhr.modUrl = `${NEW_API}/${HOME_TIMELINE_QUERY_ID}/HomeTimeline?${generateParams(
                         features,
                         variables
                     )}`;

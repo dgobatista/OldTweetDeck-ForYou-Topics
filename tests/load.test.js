@@ -55,6 +55,7 @@ const PROBE = `
 ;globalThis.__probe = {
     algoTimelines, ALGO_TOPIC_CATALOG, buildAlgoList, listIdForTopic,
     FORYOU_LIST_ID, rememberTweet, wasTweetSeen, seenHomeTweets, SEEN_TWEETS_PER_FEED,
+    HOME_TIMELINE_QUERY_ID,
 };`;
 
 try {
@@ -123,6 +124,14 @@ check(
     Object.entries(kept).every(([tag, id]) => p3.listIdForTopic(tag) === id)
 );
 check("preserved ids still resolve to the right timelines", Object.values(kept).every((id) => p3.algoTimelines.has(id)));
+
+// --- the HomeTimeline query id must be overridable without a release ---
+check("a HomeTimeline query id is set", Boolean(p.HOME_TIMELINE_QUERY_ID));
+const overridden = { OTDhomeTimelineQueryId: "OverrideMe123" };
+const sandbox4 = { ...sandbox, localStorage: new Proxy(overridden, { set: (t, k, v) => ((t[k] = String(v)), true) }) };
+sandbox4.window = sandbox4; sandbox4.self = sandbox4; sandbox4.globalThis = sandbox4;
+vm.runInNewContext(src + PROBE, sandbox4, { filename: "interception.js" });
+check("localStorage overrides the query id", sandbox4.__probe.HOME_TIMELINE_QUERY_ID === "OverrideMe123");
 
 // --- the seen-tweets cache must not grow without bound ---
 const cap = p.SEEN_TWEETS_PER_FEED;
