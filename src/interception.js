@@ -3,6 +3,20 @@ const PUBLIC_TOKENS = [
 ];
 const NEW_API = `https://${location.hostname}/i/api/graphql`;
 const cursors = {};
+// Cursor keys carry a tweet id, so every refresh mints new ones and nothing ever
+// removes them. Only the algorithmic feeds are capped here, since each column
+// adds a namespace of its own; the other routes keep writing to `cursors`
+// directly, the way they always have.
+const ALGO_CURSORS_PER_FEED = 400;
+const algoCursorKeys = new Map();
+
+function rememberAlgoCursor(ns, key, value) {
+    let keys = algoCursorKeys.get(ns);
+    if (!keys) algoCursorKeys.set(ns, (keys = []));
+    if (!(key in cursors)) keys.push(key);
+    cursors[key] = value;
+    while (keys.length > ALGO_CURSORS_PER_FEED) delete cursors[keys.shift()];
+}
 const OTD_INIT_TIME = Date.now();
 
 const generateID = () => {
@@ -47,6 +61,26 @@ if(localStorage.OTDsettings) {
 }
 let seenNotifications = [];
 let seenHomeTweets = {};
+// Ids already delivered to a column, so a refresh doesn't repeat them. Capped
+// per feed: this grew without bound over a long session, and every algorithmic
+// column adds a feed of its own, each refreshing on its own timer. Sets also
+// replace the linear array scan that ran for every tweet of every refresh.
+const SEEN_TWEETS_PER_FEED = 2000;
+
+function wasTweetSeen(key, id) {
+    return seenHomeTweets[key] ? seenHomeTweets[key].has(id) : false;
+}
+
+function rememberTweet(key, id) {
+    let seen = seenHomeTweets[key];
+    if (!seen) seen = seenHomeTweets[key] = new Set();
+    seen.add(id);
+    // Sets iterate in insertion order, so this drops the oldest ids first.
+    for (const oldest of seen) {
+        if (seen.size <= SEEN_TWEETS_PER_FEED) break;
+        seen.delete(oldest);
+    }
+}
 let timings = {
     home: {},
     list: {},
@@ -517,19 +551,32 @@ const FORYOU_LIST_ID = "900000000000001";
 // persisted: a saved column stores the list id, so it has to keep meaning the same
 // topic across reloads.
 const TOPIC_LIST_ID_BASE = 900000000000010n;
+const TOPIC_LIST_ID_RANGE = 1000000n;
 let topicListIds = JSON.parse(localStorage.OTDalgoTopics || "{}");
 
 // listId -> { tag, name }. A null tag means the plain algorithmic "For you" feed.
 const algoTimelines = new Map([[FORYOU_LIST_ID, { tag: null, name: "🔮 For you" }]]);
 
 function listIdForTopic(tag) {
-    if (!topicListIds[tag]) {
-        let used = new Set(Object.values(topicListIds));
-        let id = TOPIC_LIST_ID_BASE;
-        while (used.has(id.toString())) id += 1n;
-        topicListIds[tag] = id.toString();
-        localStorage.OTDalgoTopics = JSON.stringify(topicListIds);
+    // Assignments already on disk win: a saved column stores the list id, and
+    // earlier versions handed these out as a running counter.
+    if (topicListIds[tag]) return topicListIds[tag];
+
+    // Derive the id from the tag itself so it never depends on the catalog's
+    // order. With a counter, inserting a topic in the middle of the catalog
+    // shifted every id after it, silently repointing saved columns at a
+    // different topic.
+    let hash = 0n;
+    for (const ch of String(tag)) {
+        hash = (hash * 131n + BigInt(ch.charCodeAt(0))) % TOPIC_LIST_ID_RANGE;
     }
+    let used = new Set(Object.values(topicListIds));
+    let id = TOPIC_LIST_ID_BASE + hash;
+    while (used.has(id.toString())) {
+        id = TOPIC_LIST_ID_BASE + ((id - TOPIC_LIST_ID_BASE + 1n) % TOPIC_LIST_ID_RANGE);
+    }
+    topicListIds[tag] = id.toString();
+    localStorage.OTDalgoTopics = JSON.stringify(topicListIds);
     return topicListIds[tag];
 }
 
@@ -935,12 +982,9 @@ function parseHomeTimelineTweets(xhr, data, seenKey) {
                     pushTweets.push(tweet);
                 }
             }
-            if (!seenHomeTweets[seenKey]) {
-                seenHomeTweets[seenKey] = [];
-            }
             for (let tweet of pushTweets) {
-                if (xhr.storage.since_id && seenHomeTweets[seenKey].includes(tweet.id_str)) continue;
-                seenHomeTweets[seenKey].push(tweet.id_str);
+                if (xhr.storage.since_id && wasTweetSeen(seenKey, tweet.id_str)) continue;
+                rememberTweet(seenKey, tweet.id_str);
                 tweets.push(tweet);
             }
         }
@@ -951,12 +995,8 @@ function parseHomeTimelineTweets(xhr, data, seenKey) {
     tweets.sort(
         (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
-    if (!seenHomeTweets[seenKey]) {
-        seenHomeTweets[seenKey] = [];
-    }
     for (let tweet of tweets) {
-        if (seenHomeTweets[seenKey].includes(tweet.id_str)) continue;
-        seenHomeTweets[seenKey].push(tweet.id_str);
+        rememberTweet(seenKey, tweet.id_str);
     }
 
     return { tweets, entries };
@@ -1290,12 +1330,9 @@ const proxyRoutes = [
                             pushTweets.push(tweet);
                         }
                     }
-                    if(!seenHomeTweets[xhr.storage.user_id]) {
-                        seenHomeTweets[xhr.storage.user_id] = [];
-                    }
                     for(let tweet of pushTweets) {
-                        if(xhr.storage.since_id && seenHomeTweets[xhr.storage.user_id].includes(tweet.id_str)) continue;
-                        seenHomeTweets[xhr.storage.user_id].push(tweet.id_str);
+                        if(xhr.storage.since_id && wasTweetSeen(xhr.storage.user_id, tweet.id_str)) continue;
+                        rememberTweet(xhr.storage.user_id, tweet.id_str);
                         tweets.push(tweet);
                     }
                 }
@@ -1307,12 +1344,8 @@ const proxyRoutes = [
             tweets.sort(
                 (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
             );
-            if(!seenHomeTweets[xhr.storage.user_id]) {
-                seenHomeTweets[xhr.storage.user_id] = [];
-            }
             for(let tweet of tweets) {
-                if(seenHomeTweets[xhr.storage.user_id].includes(tweet.id_str)) continue;
-                seenHomeTweets[xhr.storage.user_id].push(tweet.id_str);
+                rememberTweet(xhr.storage.user_id, tweet.id_str);
             }
 
             let bottomCursor = entries.find(
@@ -1501,14 +1534,14 @@ const proxyRoutes = [
                     (e) => e.entryId.startsWith("sq-cursor-bottom-") || e.entryId.startsWith("cursor-bottom-")
                 );
                 if (bottomCursor) {
-                    cursors[`${ns}-${tweets[tweets.length - 1].id_str}`] = bottomCursor.content.value;
+                    rememberAlgoCursor(ns, `${ns}-${tweets[tweets.length - 1].id_str}`, bottomCursor.content.value);
                 }
                 let topCursor = entries.find(
                     (e) => e.entryId.startsWith("sq-cursor-top-") || e.entryId.startsWith("cursor-top-")
                 )?.content?.value;
                 if (topCursor) {
-                    if (tweets[0]) cursors[`${ns}-${tweets[0].id_str}-top`] = topCursor;
-                    if (tweets[1]) cursors[`${ns}-${tweets[1].id_str}-top`] = topCursor;
+                    if (tweets[0]) rememberAlgoCursor(ns, `${ns}-${tweets[0].id_str}-top`, topCursor);
+                    if (tweets[1]) rememberAlgoCursor(ns, `${ns}-${tweets[1].id_str}-top`, topCursor);
                 }
                 return tweets;
             }
