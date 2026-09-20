@@ -627,7 +627,7 @@ registerAlgoTopics(ALGO_TOPIC_CATALOG);
 
 // Extra topics declared by hand (also overrides a catalog entry's name):
 //   localStorage.OTDalgoTopicsManual = JSON.stringify([
-//       { tag: "1925949722688126976", name: "Tecnologia" },
+//       { tag: "1925949722688126976", name: "Technology" },
 //   ])
 try {
     registerAlgoTopics(JSON.parse(localStorage.OTDalgoTopicsManual || "[]"));
