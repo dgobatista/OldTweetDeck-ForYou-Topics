@@ -905,7 +905,7 @@ function parseHomeTimelineTweets(xhr, data, seenKey) {
             for (let i = 0; i < items.length; i++) {
                 let item = items[i];
                 if (
-                    item.entryId.includes("-tweet-") &&
+                    (item.entryId.startsWith("tweet-") || item.entryId.includes("-tweet-")) &&
                     !item.entryId.includes("promoted")
                 ) {
                     let res = item.item.itemContent.tweet_results.result;
